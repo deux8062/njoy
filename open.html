@@ -1,0 +1,39 @@
+<!-- jQuery Mobile은 HTML5에 최적화 되어 있기 때문에 doctype으로 HTML5를 사용한다 -->
+<!DOCTYPE html>
+<html>
+    <head>
+    <title>My Page</title>
+        <!-- 모바일 디바이스를 위한 설정 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- jQuery mobile에서 사용하는 css, javascript. 아래 3개의 리소스를 로드해야 함 -->
+    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.1.0/jquery.mobile-1.1.0.min.css" />
+    <script src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+    <script src="http://code.jquery.com/mobile/1.1.0/jquery.mobile-1.1.0.min.js"></script>
+</head>
+<body>
+<!-- data-role는 jQuery mobile에서 해당 엘리먼트가 어떤 UI인지를 지정한다. 아래 page는 이 엘리먼트가 가장 큰 단위인 페이지임을 의미한다. -->
+<div data-role="page">
+        <!-- 제목과 글로벌 메뉴를 표시하는 엘리먼트를 지정 -->
+    <div data-role="header">
+        <h1>PokerNjoy</h1>
+    </div><!-- /header -->
+        <!-- 컨텐츠가 표시되는 영역을 지정 -->
+    <div data-role="content">
+        <p>WSOP</p>
+
+        <ul data-role="listview" data-inset="true" data-filter="true">
+           <li><a href="#">2017 Main Event</a></li>
+           <li><a href="#">poker master 2016</a></li>
+           <li><a href="#">2015</a></li>
+           <li><a href="#">2014</a></li>
+           <li><a href="#">2013</a></li>
+        </ul>
+
+    </div><!-- /content -->
+  <div data-role="footer">
+    <h4> Page footer </h4>
+  </div> <!-- /footer -->
+</div><!-- /page -->
+
+</body>
+</html>
