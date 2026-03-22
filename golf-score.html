@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⛳ 골프 성적 관리</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f0; color: #1a2e1a; }
+
+  /* Header */
+  header {
+    background: linear-gradient(135deg, #1a5c1a, #2e8b2e);
+    color: white; padding: 16px 24px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  header h1 { font-size: 1.4rem; font-weight: 700; }
+  header span { font-size: 1.8rem; }
+
+  /* Tabs */
+  .tabs {
+    display: flex; background: #fff;
+    border-bottom: 2px solid #c8e6c8;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 12px 20px; cursor: pointer; font-size: 0.9rem;
+    font-weight: 600; color: #555; border-bottom: 3px solid transparent;
+    white-space: nowrap; transition: all 0.2s;
+  }
+  .tab:hover { color: #1a5c1a; background: #f0faf0; }
+  .tab.active { color: #1a5c1a; border-bottom-color: #1a5c1a; background: #f0faf0; }
+
+  /* Pages */
+  .page { display: none; padding: 20px; max-width: 900px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: #fff; border-radius: 12px; padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 16px;
+  }
+  .card h2 { font-size: 1.1rem; color: #1a5c1a; margin-bottom: 16px; font-weight: 700; }
+
+  /* Forms */
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .form-group { flex: 1; min-width: 140px; }
+  .form-group label { display: block; font-size: 0.8rem; color: #555; margin-bottom: 4px; font-weight: 600; }
+  input, select {
+    width: 100%; padding: 9px 12px; border: 1.5px solid #cce0cc;
+    border-radius: 8px; font-size: 0.9rem; background: #f9fdf9;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { outline: none; border-color: #2e8b2e; background: #fff; }
+
+  /* Buttons */
+  .btn {
+    padding: 9px 18px; border: none; border-radius: 8px;
+    font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary { background: #1a5c1a; color: white; }
+  .btn-primary:hover { background: #144914; }
+  .btn-secondary { background: #e8f5e8; color: #1a5c1a; border: 1.5px solid #c8e6c8; }
+  .btn-secondary:hover { background: #c8e6c8; }
+  .btn-danger { background: #fff0f0; color: #c0392b; border: 1.5px solid #f5c6cb; }
+  .btn-danger:hover { background: #f5c6cb; }
+  .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th {
+    background: #1a5c1a; color: white; padding: 10px 12px;
+    text-align: center; font-weight: 600;
+  }
+  td { padding: 9px 12px; text-align: center; border-bottom: 1px solid #e8f5e8; }
+  tr:hover td { background: #f0faf0; }
+  tr:last-child td { border-bottom: none; }
+
+  /* Score color */
+  .score-under { color: #c0392b; font-weight: 700; }
+  .score-over { color: #2563eb; }
+  .score-even { color: #1a5c1a; font-weight: 700; }
+
+  /* Rank badges */
+  .rank-1 { background: #ffd700; color: #333; border-radius: 50%; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+  .rank-2 { background: #c0c0c0; color: #333; border-radius: 50%; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+  .rank-3 { background: #cd7f32; color: #fff; border-radius: 50%; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+
+  /* Member avatar */
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, #1a5c1a, #4caf50);
+    color: white; display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.85rem;
+  }
+
+  /* Stats grid */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .stat-box {
+    background: #f0faf0; border-radius: 10px; padding: 14px;
+    text-align: center; border: 1.5px solid #c8e6c8;
+  }
+  .stat-box .val { font-size: 1.6rem; font-weight: 700; color: #1a5c1a; }
+  .stat-box .lbl { font-size: 0.75rem; color: #666; margin-top: 4px; }
+
+  /* Hole score grid */
+  .hole-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; margin-bottom: 10px; }
+  .hole-cell label { display: block; font-size: 0.7rem; color: #888; text-align: center; margin-bottom: 2px; }
+  .hole-cell input { text-align: center; padding: 6px 2px; }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 40px 20px; color: #999; }
+  .empty .icon { font-size: 3rem; margin-bottom: 8px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #1a5c1a; color: white; padding: 12px 20px;
+    border-radius: 10px; font-size: 0.88rem; font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 999;
+    transform: translateY(100px); opacity: 0; transition: all 0.3s;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Divider label */
+  .section-label {
+    font-size: 0.78rem; font-weight: 700; color: #888;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin: 16px 0 8px; border-bottom: 1px solid #e8f5e8; padding-bottom: 4px;
+  }
+
+  @media (max-width: 600px) {
+    .page { padding: 12px; }
+    .hole-grid { grid-template-columns: repeat(3, 1fr); }
+    .form-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span>⛳</span>
+  <h1>골프 성적 관리</h1>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('dashboard')">대시보드</div>
+  <div class="tab" onclick="showTab('members')">멤버 관리</div>
+  <div class="tab" onclick="showTab('score')">성적 입력</div>
+  <div class="tab" onclick="showTab('history')">성적 기록</div>
+  <div class="tab" onclick="showTab('ranking')">랭킹</div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div class="card">
+    <h2>요약 통계</h2>
+    <div class="stats-grid" id="summary-stats"></div>
+  </div>
+  <div class="card">
+    <h2>최근 라운드</h2>
+    <div id="recent-rounds"></div>
+  </div>
+  <div class="card">
+    <h2>이번 달 베스트 스코어</h2>
+    <div id="best-scores"></div>
+  </div>
+</div>
+
+<!-- MEMBERS -->
+<div id="page-members" class="page">
+  <div class="card">
+    <h2>멤버 추가</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>이름</label>
+        <input type="text" id="m-name" placeholder="홍길동">
+      </div>
+      <div class="form-group">
+        <label>핸디캡</label>
+        <input type="number" id="m-handicap" placeholder="0" min="0" max="54">
+      </div>
+      <div class="form-group">
+        <label>연락처 (선택)</label>
+        <input type="text" id="m-phone" placeholder="010-0000-0000">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="addMember()">멤버 추가</button>
+  </div>
+  <div class="card">
+    <h2>멤버 목록</h2>
+    <div class="table-wrap" id="member-list"></div>
+  </div>
+</div>
+
+<!-- SCORE INPUT -->
+<div id="page-score" class="page">
+  <div class="card">
+    <h2>라운드 정보</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>날짜</label>
+        <input type="date" id="r-date">
+      </div>
+      <div class="form-group">
+        <label>골프장</label>
+        <input type="text" id="r-course" placeholder="레이크힐스 CC">
+      </div>
+      <div class="form-group">
+        <label>멤버</label>
+        <select id="r-member"></select>
+      </div>
+      <div class="form-group">
+        <label>파(Par)</label>
+        <select id="r-par">
+          <option value="72">72</option>
+          <option value="71">71</option>
+          <option value="70">70</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>전반 9홀 스코어</h2>
+    <div class="hole-grid" id="front-holes"></div>
+    <div style="text-align:right; font-size:0.9rem; color:#555;">
+      전반 합계: <strong id="front-total">0</strong>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>후반 9홀 스코어</h2>
+    <div class="hole-grid" id="back-holes"></div>
+    <div style="text-align:right; font-size:0.9rem; color:#555;">
+      후반 합계: <strong id="back-total">0</strong>
+    </div>
+  </div>
+
+  <div class="card" style="background:#f0faf0; border: 1.5px solid #c8e6c8;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div>
+        <div style="font-size:0.85rem; color:#555;">총 스코어</div>
+        <div style="font-size:2.2rem; font-weight:800; color:#1a5c1a;" id="total-display">0</div>
+      </div>
+      <div>
+        <div style="font-size:0.85rem; color:#555;">파 대비</div>
+        <div style="font-size:2.2rem; font-weight:800;" id="vs-par-display">-</div>
+      </div>
+      <div>
+        <div style="font-size:0.85rem; color:#555;">넷 스코어</div>
+        <div style="font-size:2.2rem; font-weight:800; color:#2563eb;" id="net-display">-</div>
+      </div>
+      <button class="btn btn-primary" style="padding:12px 28px; font-size:1rem;" onclick="saveScore()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div id="page-history" class="page">
+  <div class="card">
+    <h2>필터</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>멤버</label>
+        <select id="h-filter-member" onchange="renderHistory()">
+          <option value="">전체</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>기간</label>
+        <select id="h-filter-period" onchange="renderHistory()">
+          <option value="">전체</option>
+          <option value="month">이번 달</option>
+          <option value="3month">최근 3개월</option>
+          <option value="year">올해</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>성적 기록</h2>
+    <div class="table-wrap" id="history-table"></div>
+  </div>
+</div>
+
+<!-- RANKING -->
+<div id="page-ranking" class="page">
+  <div class="card">
+    <div class="form-row" style="margin-bottom:0;">
+      <div class="form-group">
+        <label>기간</label>
+        <select id="rank-period" onchange="renderRanking()">
+          <option value="">전체</option>
+          <option value="month">이번 달</option>
+          <option value="3month">최근 3개월</option>
+          <option value="year">올해</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>기준</label>
+        <select id="rank-by" onchange="renderRanking()">
+          <option value="avg">평균 스코어</option>
+          <option value="best">베스트 스코어</option>
+          <option value="net">평균 넷 스코어</option>
+          <option value="rounds">라운드 수</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>멤버 랭킹</h2>
+    <div id="ranking-table"></div>
+  </div>
+  <div class="card">
+    <h2>홀인원 / 이글 / 버디 기록</h2>
+    <div id="special-records"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+const STATE_KEY = 'golf_app_v1';
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STATE_KEY)) || { members: [], rounds: [] }; }
+  catch { return { members: [], rounds: [] }; }
+}
+function saveState(s) { localStorage.setItem(STATE_KEY, JSON.stringify(s)); }
+
+let state = loadState();
+
+// ── Toast ───────────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Tabs ────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'members') renderMembers();
+  if (name === 'score') initScoreForm();
+  if (name === 'history') renderHistory();
+  if (name === 'ranking') renderRanking();
+}
+
+// ── Members ─────────────────────────────────────────────
+function addMember() {
+  const name = document.getElementById('m-name').value.trim();
+  const handicap = parseInt(document.getElementById('m-handicap').value) || 0;
+  const phone = document.getElementById('m-phone').value.trim();
+  if (!name) { toast('이름을 입력하세요'); return; }
+  if (state.members.find(m => m.name === name)) { toast('이미 등록된 이름입니다'); return; }
+  state.members.push({ id: Date.now(), name, handicap, phone });
+  saveState(state);
+  document.getElementById('m-name').value = '';
+  document.getElementById('m-handicap').value = '';
+  document.getElementById('m-phone').value = '';
+  renderMembers();
+  toast(`${name} 멤버가 추가되었습니다`);
+}
+
+function deleteMember(id) {
+  const m = state.members.find(m => m.id === id);
+  if (!confirm(`${m.name} 멤버를 삭제하시겠습니까? 관련 성적도 함께 삭제됩니다.`)) return;
+  state.members = state.members.filter(m => m.id !== id);
+  state.rounds = state.rounds.filter(r => r.memberId !== id);
+  saveState(state);
+  renderMembers();
+  toast('멤버가 삭제되었습니다');
+}
+
+function updateHandicap(id, val) {
+  const m = state.members.find(m => m.id === id);
+  if (m) { m.handicap = parseInt(val) || 0; saveState(state); }
+}
+
+function renderMembers() {
+  const el = document.getElementById('member-list');
+  if (!state.members.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">👤</div>등록된 멤버가 없습니다</div>';
+    return;
+  }
+  const rows = state.members.map(m => {
+    const rounds = state.rounds.filter(r => r.memberId === m.id);
+    const avg = rounds.length ? (rounds.reduce((s, r) => s + r.total, 0) / rounds.length).toFixed(1) : '-';
+    return `<tr>
+      <td><div class="avatar">${m.name[0]}</div></td>
+      <td>${m.name}</td>
+      <td><input type="number" value="${m.handicap}" min="0" max="54"
+        style="width:60px; text-align:center;"
+        onchange="updateHandicap(${m.id}, this.value)"></td>
+      <td>${m.phone || '-'}</td>
+      <td>${rounds.length}회</td>
+      <td>${avg}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteMember(${m.id})">삭제</button></td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table>
+    <thead><tr><th></th><th>이름</th><th>핸디캡</th><th>연락처</th><th>라운드</th><th>평균</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ── Score Form ──────────────────────────────────────────
+function initScoreForm() {
+  // date default
+  if (!document.getElementById('r-date').value) {
+    document.getElementById('r-date').value = new Date().toISOString().split('T')[0];
+  }
+  // populate member select
+  const sel = document.getElementById('r-member');
+  const cur = sel.value;
+  sel.innerHTML = state.members.length
+    ? state.members.map(m => `<option value="${m.id}">${m.name} (H:${m.handicap})</option>`).join('')
+    : '<option value="">멤버 없음</option>';
+  if (cur) sel.value = cur;
+
+  // build hole inputs
+  buildHoles('front-holes', 1, 9);
+  buildHoles('back-holes', 10, 18);
+}
+
+function buildHoles(containerId, from, to) {
+  const c = document.getElementById(containerId);
+  if (c.children.length) return; // already built
+  for (let i = from; i <= to; i++) {
+    const div = document.createElement('div');
+    div.className = 'hole-cell';
+    div.innerHTML = `<label>${i}홀</label>
+      <input type="number" id="h${i}" min="1" max="15" placeholder="-"
+        oninput="updateTotals()">`;
+    c.appendChild(div);
+  }
+}
+
+function updateTotals() {
+  let front = 0, back = 0, valid = true;
+  for (let i = 1; i <= 9; i++) {
+    const v = parseInt(document.getElementById('h' + i)?.value);
+    if (!isNaN(v)) front += v; else valid = false;
+  }
+  for (let i = 10; i <= 18; i++) {
+    const v = parseInt(document.getElementById('h' + i)?.value);
+    if (!isNaN(v)) back += v; else valid = false;
+  }
+  document.getElementById('front-total').textContent = front || 0;
+  document.getElementById('back-total').textContent = back || 0;
+  const total = front + back;
+  document.getElementById('total-display').textContent = total || 0;
+
+  const par = parseInt(document.getElementById('r-par').value);
+  const diff = total - par;
+  const vsEl = document.getElementById('vs-par-display');
+  if (total > 0) {
+    vsEl.textContent = diff === 0 ? 'E' : (diff > 0 ? '+' + diff : diff);
+    vsEl.className = diff < 0 ? 'score-under' : diff > 0 ? 'score-over' : 'score-even';
+  }
+
+  const memberId = parseInt(document.getElementById('r-member').value);
+  const m = state.members.find(m => m.id === memberId);
+  const net = m ? total - m.handicap : total;
+  document.getElementById('net-display').textContent = total > 0 ? net : '-';
+}
+
+function saveScore() {
+  const date = document.getElementById('r-date').value;
+  const course = document.getElementById('r-course').value.trim();
+  const memberId = parseInt(document.getElementById('r-member').value);
+  const par = parseInt(document.getElementById('r-par').value);
+
+  if (!date) { toast('날짜를 선택하세요'); return; }
+  if (!course) { toast('골프장을 입력하세요'); return; }
+  if (!memberId) { toast('멤버를 선택하세요'); return; }
+
+  const holes = [];
+  for (let i = 1; i <= 18; i++) {
+    const v = parseInt(document.getElementById('h' + i)?.value);
+    if (isNaN(v) || v < 1) { toast(`${i}홀 스코어를 입력하세요`); return; }
+    holes.push(v);
+  }
+
+  const total = holes.reduce((a, b) => a + b, 0);
+  const m = state.members.find(m => m.id === memberId);
+  const net = total - (m ? m.handicap : 0);
+
+  state.rounds.push({
+    id: Date.now(),
+    date, course, memberId, par, holes, total, net
+  });
+  saveState(state);
+
+  // reset holes
+  for (let i = 1; i <= 18; i++) {
+    const el = document.getElementById('h' + i);
+    if (el) el.value = '';
+  }
+  updateTotals();
+  toast(`${m?.name} 스코어가 저장되었습니다 (${total}타)`);
+}
+
+// ── History ─────────────────────────────────────────────
+function filterRounds() {
+  const memberId = document.getElementById('h-filter-member')?.value;
+  const period = document.getElementById('h-filter-period')?.value;
+  let rounds = [...state.rounds];
+  if (memberId) rounds = rounds.filter(r => r.memberId == memberId);
+  if (period) {
+    const now = new Date();
+    rounds = rounds.filter(r => {
+      const d = new Date(r.date);
+      if (period === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      if (period === '3month') return (now - d) <= 90 * 86400000;
+      if (period === 'year') return d.getFullYear() === now.getFullYear();
+      return true;
+    });
+  }
+  return rounds.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function renderHistory() {
+  // populate filter
+  const sel = document.getElementById('h-filter-member');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">전체</option>' +
+      state.members.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+    if (cur) sel.value = cur;
+  }
+
+  const rounds = filterRounds();
+  const el = document.getElementById('history-table');
+  if (!rounds.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">📋</div>성적 기록이 없습니다</div>';
+    return;
+  }
+
+  const rows = rounds.map(r => {
+    const m = state.members.find(m => m.id === r.memberId);
+    const diff = r.total - r.par;
+    const diffStr = diff === 0 ? 'E' : (diff > 0 ? '+' + diff : diff);
+    const diffClass = diff < 0 ? 'score-under' : diff > 0 ? 'score-over' : 'score-even';
+    return `<tr>
+      <td>${r.date}</td>
+      <td><div class="avatar" style="margin:auto">${m?.name[0] || '?'}</div></td>
+      <td>${m?.name || '-'}</td>
+      <td>${r.course}</td>
+      <td style="font-weight:700">${r.total}</td>
+      <td class="${diffClass}">${diffStr}</td>
+      <td style="color:#2563eb">${r.net}</td>
+      <td>${r.par}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteRound(${r.id})">삭제</button></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<table>
+    <thead><tr><th>날짜</th><th></th><th>멤버</th><th>골프장</th><th>총점</th><th>파대비</th><th>넷</th><th>파</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function deleteRound(id) {
+  if (!confirm('이 성적을 삭제하시겠습니까?')) return;
+  state.rounds = state.rounds.filter(r => r.id !== id);
+  saveState(state);
+  renderHistory();
+  toast('성적이 삭제되었습니다');
+}
+
+// ── Ranking ─────────────────────────────────────────────
+function getRoundsByPeriod(period) {
+  const now = new Date();
+  return state.rounds.filter(r => {
+    if (!period) return true;
+    const d = new Date(r.date);
+    if (period === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    if (period === '3month') return (now - d) <= 90 * 86400000;
+    if (period === 'year') return d.getFullYear() === now.getFullYear();
+    return true;
+  });
+}
+
+function renderRanking() {
+  const period = document.getElementById('rank-period').value;
+  const rankBy = document.getElementById('rank-by').value;
+  const rounds = getRoundsByPeriod(period);
+
+  const stats = state.members.map(m => {
+    const rs = rounds.filter(r => r.memberId === m.id);
+    if (!rs.length) return { m, rounds: 0, avg: null, best: null, netAvg: null };
+    const totals = rs.map(r => r.total);
+    const nets = rs.map(r => r.net);
+    return {
+      m,
+      rounds: rs.length,
+      avg: totals.reduce((a, b) => a + b, 0) / totals.length,
+      best: Math.min(...totals),
+      netAvg: nets.reduce((a, b) => a + b, 0) / nets.length
+    };
+  }).filter(s => s.rounds > 0);
+
+  // Sort
+  stats.sort((a, b) => {
+    if (rankBy === 'avg') return a.avg - b.avg;
+    if (rankBy === 'best') return a.best - b.best;
+    if (rankBy === 'net') return a.netAvg - b.netAvg;
+    if (rankBy === 'rounds') return b.rounds - a.rounds;
+    return 0;
+  });
+
+  const el = document.getElementById('ranking-table');
+  if (!stats.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">🏆</div>데이터가 없습니다</div>';
+    return;
+  }
+
+  const rankBadge = i => {
+    if (i === 0) return '<span class="rank-1">1</span>';
+    if (i === 1) return '<span class="rank-2">2</span>';
+    if (i === 2) return '<span class="rank-3">3</span>';
+    return `<span>${i + 1}</span>`;
+  };
+
+  const rows = stats.map((s, i) => `<tr>
+    <td>${rankBadge(i)}</td>
+    <td><div class="avatar" style="margin:auto">${s.m.name[0]}</div></td>
+    <td>${s.m.name}</td>
+    <td>${s.m.handicap}</td>
+    <td>${s.rounds}회</td>
+    <td>${s.avg ? s.avg.toFixed(1) : '-'}</td>
+    <td>${s.best || '-'}</td>
+    <td>${s.netAvg ? s.netAvg.toFixed(1) : '-'}</td>
+  </tr>`).join('');
+
+  el.innerHTML = `<table>
+    <thead><tr><th>순위</th><th></th><th>이름</th><th>핸디</th><th>라운드</th><th>평균</th><th>베스트</th><th>넷평균</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+
+  renderSpecialRecords(rounds);
+}
+
+function renderSpecialRecords(rounds) {
+  const el = document.getElementById('special-records');
+  // Count special scores per member: hole-in-one(1), eagle(par-2), birdie(par-1)
+  // We need per-hole par info — assume standard par for each hole (par 4 default, estimate)
+  // Special: check hole score ≤ 1 for hole-in-one, ≤ 2 for eagle-ish
+  const counts = {};
+  state.members.forEach(m => { counts[m.id] = { hio: 0, eagle: 0, birdie: 0 }; });
+
+  rounds.forEach(r => {
+    if (!r.holes) return;
+    r.holes.forEach(score => {
+      const c = counts[r.memberId];
+      if (!c) return;
+      if (score === 1) c.hio++;
+      else if (score === 2) c.eagle++;
+      else if (score === 3) c.birdie++;
+    });
+  });
+
+  const rows = state.members
+    .filter(m => counts[m.id] && (counts[m.id].hio + counts[m.id].eagle + counts[m.id].birdie > 0))
+    .map(m => `<tr>
+      <td><div class="avatar" style="margin:auto">${m.name[0]}</div></td>
+      <td>${m.name}</td>
+      <td>${counts[m.id].hio > 0 ? `⭐ ${counts[m.id].hio}` : '-'}</td>
+      <td>${counts[m.id].eagle}</td>
+      <td>${counts[m.id].birdie}</td>
+    </tr>`).join('');
+
+  if (!rows) {
+    el.innerHTML = '<div class="empty"><div class="icon">🦅</div>특별 기록이 없습니다</div>';
+    return;
+  }
+
+  el.innerHTML = `<table>
+    <thead><tr><th></th><th>이름</th><th>홀인원</th><th>이글</th><th>버디</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ── Dashboard ────────────────────────────────────────────
+function renderDashboard() {
+  const totalRounds = state.rounds.length;
+  const totalMembers = state.members.length;
+  const now = new Date();
+  const thisMonth = state.rounds.filter(r => {
+    const d = new Date(r.date);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const avgScore = totalRounds
+    ? (state.rounds.reduce((s, r) => s + r.total, 0) / totalRounds).toFixed(1)
+    : '-';
+
+  document.getElementById('summary-stats').innerHTML = `
+    <div class="stat-box"><div class="val">${totalMembers}</div><div class="lbl">멤버 수</div></div>
+    <div class="stat-box"><div class="val">${totalRounds}</div><div class="lbl">총 라운드</div></div>
+    <div class="stat-box"><div class="val">${thisMonth.length}</div><div class="lbl">이번 달 라운드</div></div>
+    <div class="stat-box"><div class="val">${avgScore}</div><div class="lbl">전체 평균 스코어</div></div>
+  `;
+
+  // Recent rounds
+  const recent = [...state.rounds].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+  const recentEl = document.getElementById('recent-rounds');
+  if (!recent.length) {
+    recentEl.innerHTML = '<div class="empty"><div class="icon">🏌️</div>라운드 기록이 없습니다</div>';
+  } else {
+    const rows = recent.map(r => {
+      const m = state.members.find(m => m.id === r.memberId);
+      const diff = r.total - r.par;
+      return `<tr>
+        <td>${r.date}</td>
+        <td>${m?.name || '-'}</td>
+        <td>${r.course}</td>
+        <td><strong>${r.total}</strong></td>
+        <td class="${diff < 0 ? 'score-under' : diff > 0 ? 'score-over' : 'score-even'}">${diff === 0 ? 'E' : (diff > 0 ? '+' + diff : diff)}</td>
+      </tr>`;
+    }).join('');
+    recentEl.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>날짜</th><th>멤버</th><th>골프장</th><th>스코어</th><th>파대비</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }
+
+  // Best scores this month
+  const bestEl = document.getElementById('best-scores');
+  if (!thisMonth.length) {
+    bestEl.innerHTML = '<div class="empty"><div class="icon">🥇</div>이번 달 기록이 없습니다</div>';
+  } else {
+    const sorted = [...thisMonth].sort((a, b) => a.total - b.total).slice(0, 5);
+    const rows = sorted.map((r, i) => {
+      const m = state.members.find(m => m.id === r.memberId);
+      return `<tr>
+        <td>${i + 1 === 1 ? '🥇' : i + 1 === 2 ? '🥈' : i + 1 === 3 ? '🥉' : i + 1}</td>
+        <td>${m?.name || '-'}</td>
+        <td>${r.course}</td>
+        <td><strong>${r.total}</strong></td>
+        <td>${r.date}</td>
+      </tr>`;
+    }).join('');
+    bestEl.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>순위</th><th>멤버</th><th>골프장</th><th>스코어</th><th>날짜</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderDashboard();
+  initScoreForm();
+
+  // Reset hole inputs on page load
+  const front = document.getElementById('front-holes');
+  const back = document.getElementById('back-holes');
+  front.innerHTML = '';
+  back.innerHTML = '';
+  buildHoles('front-holes', 1, 9);
+  buildHoles('back-holes', 10, 18);
+});
+</script>
+</body>
+</html>
