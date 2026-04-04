@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이름 획수 계산기</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .container {
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 700px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 1.8rem;
+    color: #4a3f7a;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: #888;
+    font-size: 0.9rem;
+    margin-bottom: 32px;
+  }
+
+  .names-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 500px) {
+    .names-grid { grid-template-columns: 1fr; }
+    .container { padding: 24px; }
+    h1 { font-size: 1.4rem; }
+  }
+
+  .name-card {
+    background: #f8f6ff;
+    border: 2px solid #e0d9f7;
+    border-radius: 14px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+
+  .name-card:focus-within {
+    border-color: #764ba2;
+  }
+
+  .name-card label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #4a3f7a;
+    margin-bottom: 8px;
+  }
+
+  .name-card input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid #d0c8f0;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    color: #333;
+    background: white;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .name-card input:focus {
+    border-color: #764ba2;
+  }
+
+  .name-card input::placeholder {
+    color: #bbb;
+    font-size: 0.95rem;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-bottom: 28px;
+  }
+
+  .btn:hover { opacity: 0.9; }
+  .btn:active { transform: scale(0.98); }
+
+  .results { display: none; }
+  .results.visible { display: block; }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 500px) {
+    .result-grid { grid-template-columns: 1fr; }
+  }
+
+  .result-box {
+    border-radius: 14px;
+    padding: 20px;
+    border: 2px solid transparent;
+  }
+
+  .result-box.person1 {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+  }
+
+  .result-box.person2 {
+    background: #fdf4ff;
+    border-color: #e9d5ff;
+  }
+
+  .result-box h3 {
+    font-size: 1rem;
+    color: #555;
+    margin-bottom: 12px;
+  }
+
+  .char-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .char-item {
+    background: white;
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    min-width: 56px;
+  }
+
+  .char-item .char {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #333;
+  }
+
+  .char-item .strokes {
+    font-size: 0.8rem;
+    color: #764ba2;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  .char-item .jamo-detail {
+    font-size: 0.68rem;
+    color: #aaa;
+    margin-top: 2px;
+  }
+
+  .total-stroke {
+    font-size: 1rem;
+    color: #444;
+    font-weight: 700;
+    padding: 10px 14px;
+    background: white;
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .total-stroke span {
+    font-size: 1.5rem;
+    color: #764ba2;
+  }
+
+  .winner-box {
+    text-align: center;
+    padding: 18px;
+    background: linear-gradient(135deg, #ffecd2, #fcb69f);
+    border-radius: 14px;
+    font-size: 1rem;
+    color: #7a3f00;
+    font-weight: 700;
+  }
+
+  .winner-box .winner-name {
+    font-size: 1.5rem;
+    color: #c0392b;
+    margin: 6px 0;
+  }
+
+  .draw-box {
+    text-align: center;
+    padding: 18px;
+    background: linear-gradient(135deg, #d4fc79, #96e6a1);
+    border-radius: 14px;
+    font-size: 1rem;
+    color: #1a5c1a;
+    font-weight: 700;
+  }
+
+  .error {
+    color: #e74c3c;
+    font-size: 0.85rem;
+    margin-top: 6px;
+    min-height: 1.2em;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>✍️ 이름 획수 계산기</h1>
+  <p class="subtitle">두 사람의 이름을 입력하면 한글 획수를 계산합니다</p>
+
+  <div class="names-grid">
+    <div class="name-card">
+      <label>첫 번째 사람</label>
+      <input type="text" id="name1" placeholder="이름 입력 (예: 김철수)" maxlength="10">
+      <div class="error" id="err1"></div>
+    </div>
+    <div class="name-card">
+      <label>두 번째 사람</label>
+      <input type="text" id="name2" placeholder="이름 입력 (예: 박영희)" maxlength="10">
+      <div class="error" id="err2"></div>
+    </div>
+  </div>
+
+  <button class="btn" onclick="calculate()">획수 계산하기</button>
+
+  <div class="results" id="results">
+    <div class="result-grid">
+      <div class="result-box person1" id="result1"></div>
+      <div class="result-box person2" id="result2"></div>
+    </div>
+    <div id="comparison"></div>
+  </div>
+</div>
+
+<script>
+// 초성 (19개)
+const CHOSEONG = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+// 중성 (21개)
+const JUNGSEONG = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'];
+// 종성 (28개, 0번은 받침 없음)
+const JONGSEONG = ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+
+// 자모별 획수
+const JAMO_STROKES = {
+  'ㄱ': 2, 'ㄲ': 4, 'ㄳ': 4,
+  'ㄴ': 2, 'ㄵ': 5, 'ㄶ': 5,
+  'ㄷ': 3, 'ㄸ': 6,
+  'ㄹ': 5, 'ㄺ': 7, 'ㄻ': 9, 'ㄼ': 9, 'ㄽ': 7, 'ㄾ': 9, 'ㄿ': 9, 'ㅀ': 8,
+  'ㅁ': 4,
+  'ㅂ': 4, 'ㅃ': 8, 'ㅄ': 6,
+  'ㅅ': 2, 'ㅆ': 4,
+  'ㅇ': 1,
+  'ㅈ': 3, 'ㅉ': 6,
+  'ㅊ': 4,
+  'ㅋ': 3,
+  'ㅌ': 4,
+  'ㅍ': 4,
+  'ㅎ': 3,
+  'ㅏ': 2, 'ㅐ': 3, 'ㅑ': 3, 'ㅒ': 4,
+  'ㅓ': 2, 'ㅔ': 3, 'ㅕ': 3, 'ㅖ': 4,
+  'ㅗ': 2, 'ㅘ': 4, 'ㅙ': 5, 'ㅚ': 3,
+  'ㅛ': 3,
+  'ㅜ': 2, 'ㅝ': 4, 'ㅞ': 5, 'ㅟ': 3,
+  'ㅠ': 3,
+  'ㅡ': 1, 'ㅢ': 2, 'ㅣ': 1
+};
+
+function decomposeHangul(char) {
+  const code = char.charCodeAt(0);
+  if (code < 0xAC00 || code > 0xD7A3) return null;
+
+  const offset = code - 0xAC00;
+  const jong = offset % 28;
+  const jung = Math.floor(offset / 28) % 21;
+  const cho = Math.floor(offset / 28 / 21);
+
+  return {
+    cho: CHOSEONG[cho],
+    jung: JUNGSEONG[jung],
+    jong: JONGSEONG[jong]
+  };
+}
+
+function getCharStrokes(char) {
+  const jamo = decomposeHangul(char);
+  if (!jamo) return null;
+
+  // 초성 ㅇ은 묵음(획수 0으로 처리하는 방식도 있으나, 여기서는 1획으로 계산)
+  const choStroke = JAMO_STROKES[jamo.cho] || 0;
+  const jungStroke = JAMO_STROKES[jamo.jung] || 0;
+  const jongStroke = jamo.jong ? (JAMO_STROKES[jamo.jong] || 0) : 0;
+
+  const total = choStroke + jungStroke + jongStroke;
+
+  let detail = `${jamo.cho}(${choStroke})+${jamo.jung}(${jungStroke})`;
+  if (jamo.jong) detail += `+${jamo.jong}(${jongStroke})`;
+
+  return { total, detail, cho: jamo.cho, jung: jamo.jung, jong: jamo.jong };
+}
+
+function isHangul(char) {
+  const code = char.charCodeAt(0);
+  return code >= 0xAC00 && code <= 0xD7A3;
+}
+
+function renderResult(boxEl, name, label) {
+  const chars = [...name];
+  let html = `<h3>${label}: <strong>${name}</strong></h3><div class="char-list">`;
+  let total = 0;
+
+  for (const char of chars) {
+    const info = getCharStrokes(char);
+    if (info) {
+      total += info.total;
+      html += `
+        <div class="char-item">
+          <div class="char">${char}</div>
+          <div class="strokes">${info.total}획</div>
+          <div class="jamo-detail">${info.detail}</div>
+        </div>`;
+    }
+  }
+
+  html += `</div>`;
+  html += `<div class="total-stroke">총 획수: <span>${total}획</span></div>`;
+  boxEl.innerHTML = html;
+  return total;
+}
+
+function calculate() {
+  const name1 = document.getElementById('name1').value.trim();
+  const name2 = document.getElementById('name2').value.trim();
+  const err1 = document.getElementById('err1');
+  const err2 = document.getElementById('err2');
+
+  err1.textContent = '';
+  err2.textContent = '';
+
+  let valid = true;
+
+  if (!name1) {
+    err1.textContent = '이름을 입력해주세요.';
+    valid = false;
+  } else if (![...name1].every(isHangul)) {
+    err1.textContent = '한글 이름만 입력 가능합니다.';
+    valid = false;
+  }
+
+  if (!name2) {
+    err2.textContent = '이름을 입력해주세요.';
+    valid = false;
+  } else if (![...name2].every(isHangul)) {
+    err2.textContent = '한글 이름만 입력 가능합니다.';
+    valid = false;
+  }
+
+  if (!valid) return;
+
+  const resultsEl = document.getElementById('results');
+  const box1 = document.getElementById('result1');
+  const box2 = document.getElementById('result2');
+  const compEl = document.getElementById('comparison');
+
+  const total1 = renderResult(box1, name1, '첫 번째');
+  const total2 = renderResult(box2, name2, '두 번째');
+
+  if (total1 > total2) {
+    compEl.innerHTML = `
+      <div class="winner-box">
+        더 많은 획수의 이름은<br>
+        <div class="winner-name">${name1}</div>
+        (${total1}획 vs ${total2}획, +${total1 - total2}획 많음)
+      </div>`;
+  } else if (total2 > total1) {
+    compEl.innerHTML = `
+      <div class="winner-box">
+        더 많은 획수의 이름은<br>
+        <div class="winner-name">${name2}</div>
+        (${total2}획 vs ${total1}획, +${total2 - total1}획 많음)
+      </div>`;
+  } else {
+    compEl.innerHTML = `
+      <div class="draw-box">
+        두 이름의 획수가 같습니다!<br>
+        ${name1} = ${name2} = <strong>${total1}획</strong>
+      </div>`;
+  }
+
+  resultsEl.classList.add('visible');
+}
+
+// Enter 키로도 계산
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') calculate();
+});
+</script>
+</body>
+</html>
