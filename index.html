@@ -889,7 +889,7 @@ async function saveRound() {
   if (!scores.length) { toast('최소 1명의 스코어를 입력하세요'); return; }
 
   const inserts = scores.map(s => ({
-    date, course: courseName, course_id: courseId || null,
+    date, course: courseName,
     member_id: s.memberId, par, holes: s.holes, total: s.total, net: s.net
   }));
 
