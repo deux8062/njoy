@@ -1153,15 +1153,18 @@ function renderSpecialRecords(rounds) {
   const counts = {};
   state.members.forEach(m => { counts[m.id] = { hio: 0, eagle: 0, birdie: 0 }; });
   rounds.forEach(r => {
-    const course = r.courseId ? state.courses.find(c => c.id === r.courseId) : null;
+    const course = state.courses.find(c => c.id === r.courseId) || state.courses.find(c => c.name === r.course) || null;
     r.scores.forEach(s => {
       const c = counts[s.memberId];
       if (!c || !s.holes) return;
       s.holes.forEach((score, idx) => {
+        if (score === null || score === undefined) return;
         const holePar = course?.holes[idx]?.par ?? null;
         if (score === 1) c.hio++;
-        else if (holePar !== null) { if (score <= holePar - 2) c.eagle++; else if (score === holePar - 1) c.birdie++; }
-        else { if (score === 2) c.eagle++; else if (score === 3) c.birdie++; }
+        else if (holePar !== null) {
+          if (score <= holePar - 2) c.eagle++;
+          else if (score === holePar - 1) c.birdie++;
+        }
       });
     });
   });
