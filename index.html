@@ -141,6 +141,14 @@
 
   .loading { text-align: center; padding: 20px; color: #888; font-size: 0.9rem; }
 
+  /* 수정 모드 배너 */
+  .edit-mode-banner {
+    background: #fff8e1; border-left: 4px solid #ffc107;
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.88rem; font-weight: 600; color: #7a5c00;
+  }
+
   @media (max-width: 600px) {
     .page { padding: 12px; }
     .hole-grid { grid-template-columns: repeat(3, 1fr); }
@@ -230,6 +238,11 @@
 
 <!-- SCORE INPUT -->
 <div id="page-score" class="page">
+  <div id="edit-mode-banner" style="display:none;" class="edit-mode-banner">
+    <span id="edit-mode-label">수정 중: </span>
+    <button class="btn btn-secondary btn-sm" onclick="cancelEdit()">수정 취소</button>
+  </div>
+
   <div class="card">
     <h2>라운드 정보</h2>
     <div class="form-row">
@@ -263,7 +276,7 @@
 
   <div class="card" style="background:#f0faf0; border:1.5px solid #c8e6c8;">
     <div style="display:flex; justify-content:flex-end;">
-      <button class="btn btn-primary" style="padding:12px 32px; font-size:1rem;" onclick="saveRound()">라운드 저장</button>
+      <button class="btn btn-primary" id="save-round-btn" style="padding:12px 32px; font-size:1rem;" onclick="saveRound()">라운드 저장</button>
     </div>
   </div>
 </div>
@@ -334,6 +347,9 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // rounds: [{ id, date, course, courseId, par, scores:[{memberId,holes,total,net}] }]
 // courses: stored in localStorage (key: golf_courses_v1)
 let state = { members: [], rounds: [], courses: [] };
+
+// 수정 중인 라운드 (null이면 신규 입력)
+let editingRound = null; // { date, course } — 삭제 기준 키
 
 const COURSES_KEY = 'golf_courses_v1';
 
@@ -635,20 +651,32 @@ function renderCourseList() {
 }
 
 // ── Score Form ──────────────────────────────────────────
-function initScoreForm() {
-  if (!document.getElementById('r-date').value) {
+function initScoreForm(prefill) {
+  // prefill: { date, course, courseId, par, scores:[{memberId,holes}] } — 수정 시 전달
+  if (prefill) {
+    document.getElementById('r-date').value = prefill.date;
+  } else if (!document.getElementById('r-date').value) {
     document.getElementById('r-date').value = new Date().toISOString().split('T')[0];
   }
+
   const sel = document.getElementById('r-course-select');
-  const cur = sel.value;
   sel.innerHTML = '<option value="">직접 입력</option>' +
     state.courses.map(c => `<option value="${c.id}">${c.name}${c.location ? ' (' + c.location + ')' : ''}</option>`).join('');
-  if (cur) sel.value = cur;
-  onCourseSelectChange();
-  buildMemberScorePanels();
+
+  if (prefill) {
+    if (prefill.courseId) {
+      sel.value = prefill.courseId;
+    } else {
+      sel.value = '';
+      document.getElementById('r-course-name').value = prefill.course;
+      document.getElementById('r-par-select').value  = prefill.par;
+    }
+  }
+
+  onCourseSelectChange(prefill?.scores);
 }
 
-function onCourseSelectChange() {
+function onCourseSelectChange(prefillScores) {
   const courseId = parseInt(document.getElementById('r-course-select').value) || null;
   const course   = courseId ? state.courses.find(c => c.id === courseId) : null;
   const customRow = document.getElementById('r-custom-row');
@@ -669,25 +697,32 @@ function onCourseSelectChange() {
     customRow.style.display = '';
     infoBar.style.display = 'none';
   }
-  buildMemberScorePanels();
+  buildMemberScorePanels(prefillScores);
 }
 
-function buildMemberScorePanels() {
+function buildMemberScorePanels(prefillScores) {
   const courseId = parseInt(document.getElementById('r-course-select').value) || null;
   const course   = courseId ? state.courses.find(c => c.id === courseId) : null;
 
   const tabsEl   = document.getElementById('score-member-tabs');
   const panelsEl = document.getElementById('score-member-panels');
 
-  // 기존 입력값 백업
+  // 기존 입력값 백업 (prefill이 있으면 prefill 우선)
   const backup = {};
-  state.members.forEach(m => {
-    backup[m.id] = {};
-    for (let i = 1; i <= 18; i++) {
-      const el = document.getElementById(`h${i}-${m.id}`);
-      if (el) backup[m.id][i] = el.value;
-    }
-  });
+  if (prefillScores) {
+    prefillScores.forEach(s => {
+      backup[s.memberId] = {};
+      (s.holes || []).forEach((v, i) => { backup[s.memberId][i + 1] = v ?? ''; });
+    });
+  } else {
+    state.members.forEach(m => {
+      backup[m.id] = {};
+      for (let i = 1; i <= 18; i++) {
+        const el = document.getElementById(`h${i}-${m.id}`);
+        if (el) backup[m.id][i] = el.value;
+      }
+    });
+  }
 
   tabsEl.innerHTML = '';
   panelsEl.innerHTML = '';
@@ -790,6 +825,42 @@ function isAllHolesFilled(memberId) {
   return true;
 }
 
+// ── 수정 모드 진입/취소 ─────────────────────────────────
+function startEditRound(date, course) {
+  const round = state.rounds.find(r => r.date === date && r.course === course);
+  if (!round) return;
+
+  editingRound = { date, course };
+
+  // 수정 모드 배너 표시
+  document.getElementById('edit-mode-banner').style.display = '';
+  document.getElementById('edit-mode-label').textContent = `수정 중: ${date} ${course}`;
+  document.getElementById('save-round-btn').textContent = '수정 저장';
+
+  // 성적 입력 탭으로 이동
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-score').classList.add('active');
+  document.querySelectorAll('.tab')[3].classList.add('active'); // 성적 입력 탭
+
+  initScoreForm({
+    date:     round.date,
+    course:   round.course,
+    courseId: round.courseId,
+    par:      round.par,
+    scores:   round.scores
+  });
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelEdit() {
+  editingRound = null;
+  document.getElementById('edit-mode-banner').style.display = 'none';
+  document.getElementById('save-round-btn').textContent = '라운드 저장';
+  initScoreForm();
+}
+
 async function saveRound() {
   const date = document.getElementById('r-date').value;
   if (!date) { toast('날짜를 선택하세요'); return; }
@@ -817,31 +888,43 @@ async function saveRound() {
   }
   if (!scores.length) { toast('최소 1명의 스코어를 입력하세요'); return; }
 
-  // Supabase: 멤버별 개별 행으로 삽입
   const inserts = scores.map(s => ({
-    date,
-    course: courseName,
-    course_id: courseId || null,
-    member_id: s.memberId,
-    par,
-    holes: s.holes,
-    total: s.total,
-    net: s.net
+    date, course: courseName, course_id: courseId || null,
+    member_id: s.memberId, par, holes: s.holes, total: s.total, net: s.net
   }));
-  const { error } = await db.from('rounds').insert(inserts);
-  if (error) { toast('저장 오류: ' + error.message); return; }
 
-  // 로컬 state에도 반영 (그루핑 형태로)
-  const key = `${date}__${courseName}`;
-  const existing = state.rounds.find(r => r.date === date && r.course === courseName);
-  if (existing) {
-    scores.forEach(s => existing.scores.push(s));
-  } else {
+  if (editingRound) {
+    // 기존 행 삭제 후 재삽입
+    const { error: delErr } = await db.from('rounds')
+      .delete()
+      .eq('date', editingRound.date)
+      .eq('course', editingRound.course);
+    if (delErr) { toast('수정 오류: ' + delErr.message); return; }
+
+    const { error: insErr } = await db.from('rounds').insert(inserts);
+    if (insErr) { toast('수정 오류: ' + insErr.message); return; }
+
+    // 로컬 state 업데이트
+    state.rounds = state.rounds.filter(r => !(r.date === editingRound.date && r.course === editingRound.course));
     state.rounds.unshift({ id: Date.now(), date, course: courseName, courseId, par, scores });
+    state.rounds.sort((a, b) => b.date.localeCompare(a.date));
+
+    editingRound = null;
+    document.getElementById('edit-mode-banner').style.display = 'none';
+    document.getElementById('save-round-btn').textContent = '라운드 저장';
+    toast(`라운드가 수정되었습니다 (${scores.length}명)`);
+  } else {
+    const { error } = await db.from('rounds').insert(inserts);
+    if (error) { toast('저장 오류: ' + error.message); return; }
+
+    const existing = state.rounds.find(r => r.date === date && r.course === courseName);
+    if (existing) { scores.forEach(s => existing.scores.push(s)); }
+    else { state.rounds.unshift({ id: Date.now(), date, course: courseName, courseId, par, scores }); }
+
+    toast(`라운드가 저장되었습니다 (${scores.length}명)`);
   }
 
   initScoreForm();
-  toast(`라운드가 저장되었습니다 (${scores.length}명)`);
 }
 
 // ── 공통 헬퍼 ───────────────────────────────────────────
@@ -900,7 +983,10 @@ function renderHistory() {
       <td>${r.date}</td>
       <td style="text-align:left;">${r.course} <span style="font-size:0.75rem;color:#888;">Par ${r.par}</span></td>
       <td style="text-align:left;"><div class="score-chips">${chips}</div></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteRound('${r.date}','${r.course}')">삭제</button></td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-secondary btn-sm" onclick="startEditRound('${r.date}','${r.course}')">수정</button>
+        <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="deleteRound('${r.date}','${r.course}')">삭제</button>
+      </td>
     </tr>`;
   }).join('');
   el.innerHTML = `<table>
