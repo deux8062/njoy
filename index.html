@@ -153,6 +153,15 @@
   .hole-cell input.rel-double    { background: #d8e4ff; border-color: #7090e0; color: #1030a0; }
   .hole-cell input.rel-more      { background: #c8d4ff; border-color: #5070d0; color: #0820a0; }
 
+  /* 특별 기록 테이블 컬럼 색상 */
+  .sr-hio    { color: #b8860b; font-weight: 700; }
+  .sr-eagle  { color: #c02020; font-weight: 700; }
+  .sr-birdie { color: #c04040; }
+  .sr-par    { color: #1a5c1a; }
+  .sr-bogey  { color: #2040a0; }
+  .sr-double { color: #1030a0; }
+  .sr-triple { color: #666; }
+
   /* 수정 모드 배너 */
   .edit-mode-banner {
     background: #fff8e1; border-left: 4px solid #ffc107;
@@ -1151,7 +1160,7 @@ function renderRanking() {
 function renderSpecialRecords(rounds) {
   const el = document.getElementById('special-records');
   const counts = {};
-  state.members.forEach(m => { counts[m.id] = { hio: 0, eagle: 0, birdie: 0 }; });
+  state.members.forEach(m => { counts[m.id] = { hio: 0, eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0, triple: 0 }; });
   rounds.forEach(r => {
     const course = state.courses.find(c => c.id === r.courseId) || state.courses.find(c => c.name === r.course) || null;
     r.scores.forEach(s => {
@@ -1160,25 +1169,50 @@ function renderSpecialRecords(rounds) {
       s.holes.forEach((score, idx) => {
         if (score === null || score === undefined) return;
         const holePar = course?.holes[idx]?.par ?? null;
-        if (score === 1) c.hio++;
-        else if (holePar !== null) {
-          if (score <= holePar - 2) c.eagle++;
-          else if (score === holePar - 1) c.birdie++;
-        }
+        if (score === 1) { c.hio++; return; }
+        if (holePar === null) return;
+        const diff = score - holePar;
+        if (diff <= -2)     c.eagle++;
+        else if (diff === -1) c.birdie++;
+        else if (diff ===  0) c.par++;
+        else if (diff ===  1) c.bogey++;
+        else if (diff ===  2) c.double++;
+        else                  c.triple++;
       });
     });
   });
+  const total = c => c.hio + c.eagle + c.birdie + c.par + c.bogey + c.double + c.triple;
+  const fmt = v => v > 0 ? v : '-';
   const rows = state.members
-    .filter(m => counts[m.id] && (counts[m.id].hio + counts[m.id].eagle + counts[m.id].birdie > 0))
-    .map(m => `<tr>
-      <td><div class="avatar" style="margin:auto">${m.name[0]}</div></td>
-      <td>${m.name}</td>
-      <td>${counts[m.id].hio > 0 ? `⭐ ${counts[m.id].hio}` : '-'}</td>
-      <td>${counts[m.id].eagle || '-'}</td>
-      <td>${counts[m.id].birdie || '-'}</td>
-    </tr>`).join('');
+    .filter(m => counts[m.id] && total(counts[m.id]) > 0)
+    .map(m => {
+      const c = counts[m.id];
+      return `<tr>
+        <td><div class="avatar" style="margin:auto">${m.name[0]}</div></td>
+        <td>${m.name}</td>
+        <td class="sr-hio">${c.hio > 0 ? `⭐ ${c.hio}` : '-'}</td>
+        <td class="sr-eagle">${fmt(c.eagle)}</td>
+        <td class="sr-birdie">${fmt(c.birdie)}</td>
+        <td class="sr-par">${fmt(c.par)}</td>
+        <td class="sr-bogey">${fmt(c.bogey)}</td>
+        <td class="sr-double">${fmt(c.double)}</td>
+        <td class="sr-triple">${fmt(c.triple)}</td>
+      </tr>`;
+    }).join('');
   el.innerHTML = rows
-    ? `<table><thead><tr><th></th><th>이름</th><th>홀인원</th><th>이글</th><th>버디</th></tr></thead><tbody>${rows}</tbody></table>`
+    ? `<div style="overflow-x:auto"><table>
+        <thead><tr>
+          <th></th><th>이름</th>
+          <th class="sr-hio">홀인원</th>
+          <th class="sr-eagle">이글</th>
+          <th class="sr-birdie">버디</th>
+          <th class="sr-par">파</th>
+          <th class="sr-bogey">보기</th>
+          <th class="sr-double">더블</th>
+          <th class="sr-triple">트리플+</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`
     : '<div class="empty"><div class="icon">🦅</div>특별 기록이 없습니다</div>';
 }
 
