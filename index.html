@@ -141,6 +141,18 @@
 
   .loading { text-align: center; padding: 20px; color: #888; font-size: 0.9rem; }
 
+  /* 홀별 실제 타수 표시 (상대 입력 모드) */
+  .hole-actual-score { display: block; font-size: 0.68rem; text-align: center; color: #888; margin-top: 2px; font-weight: 600; }
+
+  /* 상대 입력 색상 */
+  .hole-cell input.rel-albatross { background: #ffd0d0; border-color: #e05050; color: #a00; }
+  .hole-cell input.rel-eagle     { background: #ffe8e8; border-color: #e07070; color: #c02020; }
+  .hole-cell input.rel-birdie    { background: #fff0f0; border-color: #f5a0a0; color: #c04040; }
+  .hole-cell input.rel-par       { background: #f0faf0; border-color: #90c890; color: #1a5c1a; }
+  .hole-cell input.rel-bogey     { background: #e8f0ff; border-color: #a0b0f5; color: #2040a0; }
+  .hole-cell input.rel-double    { background: #d8e4ff; border-color: #7090e0; color: #1030a0; }
+  .hole-cell input.rel-more      { background: #c8d4ff; border-color: #5070d0; color: #0820a0; }
+
   /* 수정 모드 배너 */
   .edit-mode-banner {
     background: #fff8e1; border-left: 4px solid #ffc107;
@@ -765,21 +777,50 @@ function buildMemberScorePanels(prefillScores) {
 function buildHolesForMember(memberId, from, to, containerId, course, backup) {
   const c = document.getElementById(containerId);
   c.innerHTML = '';
+  const useRel = !!course;
+
   for (let i = from; i <= to; i++) {
     const holePar = course?.holes[i - 1]?.par;
     const holeHc  = course?.holes[i - 1]?.handicap;
+    const rawVal  = (backup && backup[i] !== undefined && backup[i] !== null && backup[i] !== '')
+                    ? backup[i] : '';
     const div = document.createElement('div');
     div.className = 'hole-cell';
-    div.innerHTML = `
-      <label>${i}홀</label>
-      ${holePar ? `<span class="hole-par-badge">Par ${holePar}</span>` : ''}
-      ${holeHc  ? `<span style="display:block;font-size:0.6rem;color:#bbb;text-align:center;margin-bottom:1px;">HC${holeHc}</span>` : ''}
-      <input type="number" id="h${i}-${memberId}" min="1" max="15" placeholder="-"
-        oninput="updateMemberTotals(${memberId})"
-        value="${backup && backup[i] ? backup[i] : ''}">`;
+
+    if (useRel) {
+      const initActual = rawVal !== '' ? holePar + parseInt(rawVal) : holePar;
+      div.innerHTML = `
+        <label>${i}홀</label>
+        <span class="hole-par-badge">Par ${holePar}</span>
+        ${holeHc ? `<span style="display:block;font-size:0.6rem;color:#bbb;text-align:center;margin-bottom:1px;">HC${holeHc}</span>` : ''}
+        <input type="number" id="h${i}-${memberId}" min="-8" max="20" placeholder="0"
+          oninput="updateMemberTotals(${memberId})"
+          value="${rawVal}" style="text-align:center; padding:6px 2px;">
+        <span class="hole-actual-score" id="ha${i}-${memberId}">${rawVal !== '' ? initActual + '타' : ''}</span>`;
+    } else {
+      div.innerHTML = `
+        <label>${i}홀</label>
+        ${holePar ? `<span class="hole-par-badge">Par ${holePar}</span>` : ''}
+        ${holeHc  ? `<span style="display:block;font-size:0.6rem;color:#bbb;text-align:center;margin-bottom:1px;">HC${holeHc}</span>` : ''}
+        <input type="number" id="h${i}-${memberId}" min="1" max="20" placeholder="-"
+          oninput="updateMemberTotals(${memberId})"
+          value="${rawVal}" style="text-align:center; padding:6px 2px;">`;
+    }
     c.appendChild(div);
   }
-  if (backup) updateMemberTotals(memberId);
+  if (backup !== undefined) updateMemberTotals(memberId);
+}
+
+function applyRelColor(el, rel) {
+  el.classList.remove('rel-albatross','rel-eagle','rel-birdie','rel-par','rel-bogey','rel-double','rel-more');
+  if (el.value === '') return;
+  if      (rel <= -3) el.classList.add('rel-albatross');
+  else if (rel === -2) el.classList.add('rel-eagle');
+  else if (rel === -1) el.classList.add('rel-birdie');
+  else if (rel ===  0) el.classList.add('rel-par');
+  else if (rel ===  1) el.classList.add('rel-bogey');
+  else if (rel ===  2) el.classList.add('rel-double');
+  else                 el.classList.add('rel-more');
 }
 
 function switchMemberTab(memberId) {
@@ -797,19 +838,56 @@ function getActivePar() {
 }
 
 function updateMemberTotals(memberId) {
-  let front = 0, back = 0;
-  for (let i = 1;  i <= 9;  i++) { const v = parseInt(document.getElementById(`h${i}-${memberId}`)?.value);  if (!isNaN(v)) front += v; }
-  for (let i = 10; i <= 18; i++) { const v = parseInt(document.getElementById(`h${i}-${memberId}`)?.value); if (!isNaN(v)) back  += v; }
-  document.getElementById(`front-total-${memberId}`).textContent = front || 0;
-  document.getElementById(`back-total-${memberId}`).textContent  = back  || 0;
+  const courseId = parseInt(document.getElementById('r-course-select').value) || null;
+  const course   = courseId ? state.courses.find(c => c.id === courseId) : null;
+  const useRel   = !!course;
+
+  let front = 0, back = 0, frontRel = 0, backRel = 0;
+
+  for (let i = 1; i <= 9; i++) {
+    const el = document.getElementById(`h${i}-${memberId}`);
+    if (!el) continue;
+    if (useRel) {
+      const hp  = course.holes[i - 1].par;
+      const rel = el.value !== '' ? parseInt(el.value) : NaN;
+      if (!isNaN(rel)) { front += hp + rel; frontRel += rel; }
+      applyRelColor(el, rel);
+      const ha = document.getElementById(`ha${i}-${memberId}`);
+      if (ha) ha.textContent = el.value !== '' ? (hp + rel) + '타' : '';
+    } else {
+      const v = parseInt(el.value);
+      if (!isNaN(v) && v >= 1) front += v;
+    }
+  }
+  for (let i = 10; i <= 18; i++) {
+    const el = document.getElementById(`h${i}-${memberId}`);
+    if (!el) continue;
+    if (useRel) {
+      const hp  = course.holes[i - 1].par;
+      const rel = el.value !== '' ? parseInt(el.value) : NaN;
+      if (!isNaN(rel)) { back += hp + rel; backRel += rel; }
+      applyRelColor(el, rel);
+      const ha = document.getElementById(`ha${i}-${memberId}`);
+      if (ha) ha.textContent = el.value !== '' ? (hp + rel) + '타' : '';
+    } else {
+      const v = parseInt(el.value);
+      if (!isNaN(v) && v >= 1) back += v;
+    }
+  }
+
+  const fEl = document.getElementById(`front-total-${memberId}`);
+  const bEl = document.getElementById(`back-total-${memberId}`);
+  if (fEl) fEl.textContent = front ? `${front}${useRel && frontRel !== 0 ? ' (' + (frontRel > 0 ? '+' : '') + frontRel + ')' : ''}` : '0';
+  if (bEl) bEl.textContent = back  ? `${back}${useRel && backRel  !== 0 ? ' (' + (backRel  > 0 ? '+' : '') + backRel  + ')' : ''}` : '0';
+
   const total = front + back;
   if (total > 0) {
     const par  = getActivePar();
-    const diff = total - par;
+    const diff = useRel ? (frontRel + backRel) : (total - par);
     const vsEl = document.getElementById(`vs-par-${memberId}`);
     document.getElementById(`total-${memberId}`).textContent = total;
-    vsEl.textContent  = diff === 0 ? 'E' : (diff > 0 ? '+' + diff : diff);
-    vsEl.className    = diff < 0 ? 'score-under' : diff > 0 ? 'score-over' : 'score-even';
+    vsEl.textContent = diff === 0 ? 'E' : (diff > 0 ? '+' + diff : diff);
+    vsEl.className   = diff < 0 ? 'score-under' : diff > 0 ? 'score-over' : 'score-even';
     const m = state.members.find(m => m.id === memberId);
     document.getElementById(`net-${memberId}`).textContent = m ? total - m.handicap : total;
   }
@@ -818,9 +896,17 @@ function updateMemberTotals(memberId) {
 }
 
 function isAllHolesFilled(memberId) {
+  const courseId = parseInt(document.getElementById('r-course-select').value) || null;
+  const useRel   = !!courseId;
   for (let i = 1; i <= 18; i++) {
-    const v = parseInt(document.getElementById(`h${i}-${memberId}`)?.value);
-    if (isNaN(v) || v < 1) return false;
+    const el = document.getElementById(`h${i}-${memberId}`);
+    if (!el) return false;
+    if (useRel) {
+      if (el.value === '') return false;
+    } else {
+      const v = parseInt(el.value);
+      if (isNaN(v) || v < 1) return false;
+    }
   }
   return true;
 }
@@ -830,25 +916,32 @@ function startEditRound(date, course) {
   const round = state.rounds.find(r => r.date === date && r.course === course);
   if (!round) return;
 
-  editingRound = { date, course };
+  // 코스명으로 등록 코스 매칭 → 절대 타수를 상대값으로 변환
+  const matchedCourse = state.courses.find(c => c.name === round.course);
 
-  // 수정 모드 배너 표시
+  const prefillScores = round.scores.map(s => ({
+    memberId: s.memberId,
+    holes: (matchedCourse && s.holes)
+      ? s.holes.map((abs, idx) => abs - matchedCourse.holes[idx].par)  // 절대 → 상대
+      : s.holes
+  }));
+
+  editingRound = { date, course };
   document.getElementById('edit-mode-banner').style.display = '';
   document.getElementById('edit-mode-label').textContent = `수정 중: ${date} ${course}`;
   document.getElementById('save-round-btn').textContent = '수정 저장';
 
-  // 성적 입력 탭으로 이동
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-score').classList.add('active');
-  document.querySelectorAll('.tab')[3].classList.add('active'); // 성적 입력 탭
+  document.querySelectorAll('.tab')[3].classList.add('active');
 
   initScoreForm({
     date:     round.date,
     course:   round.course,
-    courseId: round.courseId,
+    courseId: matchedCourse?.id || round.courseId || null,
     par:      round.par,
-    scores:   round.scores
+    scores:   prefillScores
   });
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -871,14 +964,26 @@ async function saveRound() {
   if (!courseName) { toast('골프장명을 입력하세요'); return; }
   const par = getActivePar();
 
+  const useRel = !!course;
   const scores = [];
   for (const m of state.members) {
     const holes = [];
     let hasAny = false, allFilled = true;
     for (let i = 1; i <= 18; i++) {
-      const v = parseInt(document.getElementById(`h${i}-${m.id}`)?.value);
-      if (!isNaN(v) && v >= 1) { holes.push(v); hasAny = true; }
-      else { holes.push(null); allFilled = false; }
+      const el = document.getElementById(`h${i}-${m.id}`);
+      if (useRel) {
+        if (el?.value === '' || el?.value === null || el?.value === undefined) {
+          holes.push(null); allFilled = false;
+        } else {
+          const rel = parseInt(el.value);
+          const actual = course.holes[i - 1].par + rel;
+          holes.push(actual); hasAny = true;
+        }
+      } else {
+        const v = parseInt(el?.value);
+        if (!isNaN(v) && v >= 1) { holes.push(v); hasAny = true; }
+        else { holes.push(null); allFilled = false; }
+      }
     }
     if (hasAny && !allFilled) { switchMemberTab(m.id); toast(`${m.name}의 스코어를 모두 입력하거나 비워두세요`); return; }
     if (allFilled) {
