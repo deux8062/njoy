@@ -153,6 +153,19 @@
   .hole-cell input.rel-double    { background: #d8e4ff; border-color: #7090e0; color: #1030a0; }
   .hole-cell input.rel-more      { background: #c8d4ff; border-color: #5070d0; color: #0820a0; }
 
+  /* 코스 검색 */
+  .course-search-result {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; border: 1px solid #d8e8d8; border-radius: 8px;
+    margin-bottom: 6px; cursor: pointer; background: #fff; transition: background 0.15s;
+  }
+  .course-search-result:hover { background: #f0faf0; border-color: #2e8b2e; }
+  .course-search-result .csr-name { font-weight: 600; font-size: 0.95rem; }
+  .course-search-result .csr-meta { font-size: 0.78rem; color: #888; margin-top: 2px; }
+  .course-search-result .csr-holes { font-size: 0.8rem; color: #2e8b2e; font-weight: 600; white-space: nowrap; margin-left: 8px; }
+  .api-key-bar { background: #f8f8f0; border: 1px solid #e0d890; border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 0.82rem; }
+  .api-key-bar a { color: #2e8b2e; }
+
   /* 특별 기록 테이블 컬럼 색상 */
   .sr-hio    { color: #b8860b; font-weight: 700; }
   .sr-eagle  { color: #c02020; font-weight: 700; }
@@ -229,6 +242,36 @@
 
 <!-- COURSES -->
 <div id="page-courses" class="page">
+  <div class="card">
+    <h2>🔍 골프장 검색 <span style="font-size:0.72rem;color:#aaa;font-weight:400">powered by golfcourseapi.com</span></h2>
+    <div class="form-row" style="align-items:flex-end; gap:8px;">
+      <div class="form-group" style="flex:1; margin:0;">
+        <label>골프장 이름 (영문 또는 한글)</label>
+        <input type="text" id="course-search-input" placeholder="e.g. New Seoul CC, Lakehills" onkeydown="if(event.key==='Enter') searchCourseAPI()">
+      </div>
+      <button class="btn btn-primary" onclick="searchCourseAPI()" style="height:42px; white-space:nowrap;">검색</button>
+    </div>
+    <div style="margin-top:6px; font-size:0.78rem; color:#999;">
+      API 키 필요 ·
+      <a href="https://golfcourseapi.com" target="_blank" style="color:#2e8b2e;">golfcourseapi.com</a>에서 무료 발급 (이메일만) ·
+      <a href="#" onclick="toggleApiKeySetting(); return false;" style="color:#2e8b2e;">키 설정</a>
+    </div>
+    <div id="api-key-setting" class="api-key-bar" style="display:none;">
+      <div style="font-weight:600; margin-bottom:6px;">API 키 설정</div>
+      <div class="form-row" style="align-items:flex-end; gap:8px; margin:0;">
+        <div class="form-group" style="flex:1; margin:0;">
+          <input type="text" id="golf-api-key-input" placeholder="여기에 API 키 붙여넣기">
+        </div>
+        <button class="btn btn-secondary" onclick="saveApiKey()" style="height:42px;">저장</button>
+      </div>
+      <div style="margin-top:6px; color:#888;">
+        1. <a href="https://golfcourseapi.com" target="_blank" style="color:#2e8b2e;">golfcourseapi.com</a> 접속 → 이메일로 무료 가입 → API 키 발급<br>
+        2. 발급받은 키를 위에 붙여넣고 저장
+      </div>
+    </div>
+    <div id="course-search-results" style="margin-top:10px;"></div>
+  </div>
+
   <div class="card">
     <h2 id="course-form-title">코스 추가</h2>
     <input type="hidden" id="c-editing-id">
@@ -505,6 +548,119 @@ function renderMembers() {
   el.innerHTML = `<table>
     <thead><tr><th></th><th>이름</th><th>핸디캡</th><th>연락처</th><th>라운드</th><th>평균</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table>`;
+}
+
+// ── Course API Search ────────────────────────────────────
+function toggleApiKeySetting() {
+  const el = document.getElementById('api-key-setting');
+  const isHidden = el.style.display === 'none';
+  el.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) {
+    const saved = localStorage.getItem('golf_api_key') || '';
+    document.getElementById('golf-api-key-input').value = saved;
+  }
+}
+
+function saveApiKey() {
+  const key = document.getElementById('golf-api-key-input').value.trim();
+  if (!key) { toast('API 키를 입력하세요'); return; }
+  localStorage.setItem('golf_api_key', key);
+  document.getElementById('api-key-setting').style.display = 'none';
+  toast('API 키가 저장되었습니다');
+}
+
+async function searchCourseAPI() {
+  const query = document.getElementById('course-search-input').value.trim();
+  if (!query) { toast('골프장 이름을 입력하세요'); return; }
+  const apiKey = localStorage.getItem('golf_api_key') || '';
+  if (!apiKey) {
+    toast('API 키를 먼저 설정하세요');
+    document.getElementById('api-key-setting').style.display = 'block';
+    return;
+  }
+  const el = document.getElementById('course-search-results');
+  el.innerHTML = '<div style="color:#888;padding:8px;">검색 중...</div>';
+  try {
+    const res = await fetch(`https://api.golfcourseapi.com/v1/search?search_query=${encodeURIComponent(query)}&key=${apiKey}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || data.error || `오류 ${res.status}`);
+    const courses = data.courses || data.data || data.results || [];
+    if (!courses.length) {
+      el.innerHTML = '<div style="color:#888;padding:8px;">검색 결과가 없습니다. 영문 이름으로 시도해보세요.</div>';
+      return;
+    }
+    el.innerHTML = courses.slice(0, 10).map(c => {
+      const name = c.club_name || c.name || c.course_name || '(이름 없음)';
+      const loc  = [c.city, c.state, c.country].filter(Boolean).join(', ');
+      const holes = c.num_holes || c.holes || 18;
+      return `<div class="course-search-result" onclick="importCourseFromAPI(${JSON.stringify(c.id || c.course_id)})">
+        <div>
+          <div class="csr-name">${name}</div>
+          <div class="csr-meta">${loc || '위치 정보 없음'}</div>
+        </div>
+        <div class="csr-holes">${holes}홀</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = `<div style="color:#e05050;padding:8px;">검색 오류: ${e.message}</div>`;
+  }
+}
+
+async function importCourseFromAPI(courseId) {
+  const apiKey = localStorage.getItem('golf_api_key') || '';
+  const el = document.getElementById('course-search-results');
+  el.innerHTML = '<div style="color:#888;padding:8px;">코스 정보 불러오는 중...</div>';
+  try {
+    const res = await fetch(`https://api.golfcourseapi.com/v1/courses/${courseId}?key=${apiKey}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || data.error || `오류 ${res.status}`);
+
+    // 응답 구조 정규화 (다양한 필드명 대응)
+    const course = data.course || data.data || data;
+    const name   = course.club_name || course.name || course.course_name || '';
+    const loc    = [course.city, course.state, course.country].filter(Boolean).join(', ');
+
+    // 홀 데이터: 남성 티 우선, 없으면 첫 번째 티
+    const teeGroups = course.tees || {};
+    const teeList   = teeGroups.male || teeGroups.female || Object.values(teeGroups)[0] || [];
+    // 가장 기본적인 티(white/regular/standard/blue 순) 선택
+    const preferred = ['white','regular','standard','blue','yellow','black'];
+    let tee = teeList.find(t => preferred.includes((t.name||'').toLowerCase()))
+           || teeList[0]
+           || null;
+    const holeData = tee?.holes || [];
+
+    // 폼에 값 채우기
+    document.getElementById('c-name').value = name;
+    document.getElementById('c-location').value = loc;
+    document.getElementById('c-editing-id').value = '';
+    document.getElementById('course-form-title').textContent = '코스 추가';
+    document.getElementById('c-cancel-btn').style.display = 'none';
+
+    holeData.forEach((h, idx) => {
+      const i = idx + 1;
+      if (i > 18) return;
+      const par  = parseInt(h.par  || h.Par  || 4);
+      const hc   = parseInt(h.handicap || h.stroke_index || h.strokeIndex || '') || '';
+      const dist = parseInt(h.yardage  || h.yards || h.meters || h.distance || '') || '';
+      const parEl  = document.getElementById(`cp-${i}`);
+      const hcEl   = document.getElementById(`ch-${i}`);
+      const distEl = document.getElementById(`cd-${i}`);
+      if (parEl)  parEl.value  = [3,4,5].includes(par) ? par : 4;
+      if (hcEl)   hcEl.value   = hc;
+      if (distEl) distEl.value = dist;
+    });
+    updateCourseTotalPar();
+
+    el.innerHTML = `<div style="color:#1a5c1a;padding:8px;font-weight:600;">
+      ✅ "${name}" 정보를 불러왔습니다. 아래 폼에서 확인 후 <strong>코스 저장</strong>을 눌러주세요.
+    </div>`;
+
+    // 폼으로 스크롤
+    document.getElementById('course-form-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    el.innerHTML = `<div style="color:#e05050;padding:8px;">불러오기 오류: ${e.message}</div>`;
+  }
 }
 
 // ── Courses (localStorage) ───────────────────────────────
